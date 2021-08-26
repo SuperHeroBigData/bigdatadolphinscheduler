@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<!-- 根标签 -->
+<configuration>
+    <!-- 环境，可以配置多个，default：指定采用哪个环境 -->
+    <environments default="dolphinscheduler">
+        <!-- id：唯一标识 -->
+        <environment id="dolphinscheduler">
+            <!-- 事务管理器，JDBC类型的事务管理器 -->
+            <transactionManager type="JDBC" />
+            <!-- 数据源，池类型的数据源 -->
+            <dataSource type="POOLED">
+                <property name="driver" value="${jdbc.driver}"/>
+                <property name="url" value="${jdbc.url}"/>
+                <property name="username" value="${jdbc.username}"/>
+                <property name="password" value="${jdbc.password}"/>
+            </dataSource>
+        </environment>
+    </environments>
+    <mappers>
+        <mapper resource="mappers/TenantMapper.xml"/>
+        <mapper resource="mappers/WorkerGroupMapper.xml"/>
+        <mapper resource="mappers/ProjectMapper.xml"/>
+        <mapper resource="mappers/ProcessDefinitionMapper.xml"/>
+        <mapper resource="mappers/ScheduleMapper.xml"/>
+        <mapper resource="mappers/ResourceMapper.xml"/>
+        <mapper resource="mappers/DataSourceMapper.xml"/>
+    </mappers>
+
+</configuration>
