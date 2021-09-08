@@ -19,5 +19,4 @@ public class SqlCommon {
     private String receivers="";
     private String receiversCc="";
     private String showType="TABLE";
-
 }

@@ -31,7 +31,7 @@ public class HttpUtil {
      */
     public static void sendDingDingTalkRisk(String message) throws IOException {
         CloseableHttpClient httpClient = HttpClients.createDefault();
-        HttpPost httpPost = new HttpPost("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=d3e6de8c-3b56-4c00-84cd-130c9652ae1c");
+        HttpPost httpPost = new HttpPost("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=-130c9652ae1c");
         httpPost.addHeader("Content-Type", "application/json; charset=utf-8");
         httpPost.setHeader("guest", "guest");
         JSONObject bodys = new JSONObject();
@@ -74,18 +74,31 @@ public class HttpUtil {
      * @param result
      */
     public static void executeResult(Result result) {
-        try {
-            String js = JSONObject.toJSONString(result, SerializerFeature.WriteMapNullValue);
-            if (State.ERROR.equals(State.valueOf(result.getState().toUpperCase()))) {
-                LOG.error("执行结果报错:{}", js);
-                String message = String.format("excel解析报错。报错时间：%s, 项目名：%s, 任务名：%s, 报错信息：%s",
-                        DateUtil.formatDate(new Date()),result.getProjectName(),result.getJobName(),result.getMsg());
-                sendWeChatRobotTalkRisk(message);
-                throw new TasksException("当前执行失败："+result);
-            }
-            LOG.info("执行结果：{}",js);
-        } catch (IOException e) {
-            LOG.error("发送WeChat报告异常:{}", e.toString());
+        String js = JSONObject.toJSONString(result, SerializerFeature.WriteMapNullValue);
+        if (State.ERROR.equals(State.valueOf(result.getState().toUpperCase()))) {
+            LOG.error("执行结果报错:{}", js);
+            String message = String.format("excel解析报错。报错时间：%s, 项目名：%s, 任务名：%s, 报错信息：%s",
+                    DateUtil.formatDate(new Date()),result.getProjectName(),result.getJobName(),result.getMsg());
+            //sendWeChatRobotTalkRisk(message);
+            throw new TasksException("当前执行失败："+result);
         }
+        LOG.info("执行结果：{}",js);
     }
+    /**
+     * 执行结果报错发送告警
+     *
+     * @param result
+     */
+    public static void executeResourceResult(Result result) {
+        String js = JSONObject.toJSONString(result, SerializerFeature.WriteMapNullValue);
+        if (State.ERROR.equals(State.valueOf(result.getState().toUpperCase()))) {
+            LOG.error("执行结果报错:{}", js);
+            String message = String.format("资源上传报错。报错时间：%s, 项目名：%s, 任务名：%s, 报错信息：%s",
+                    DateUtil.formatDate(new Date()),result.getProjectName(),result.getJobName(),result.getMsg());
+            //sendWeChatRobotTalkRisk(message);
+            throw new TasksException("当前执行失败："+result);
+        }
+        LOG.info("执行结果：{}",js);
+    }
+
 }

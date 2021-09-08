@@ -150,6 +150,11 @@
         from t_ds_resources
         where full_name like CONCAT('%',#{fullName},'%') and is_directory='0'
     </select>
+    <select id="queryResourceByfullNamePrecise" resultType="necibook.com.entity.dsentity.ResourceInfo" >
+        select id,file_name as name,full_name as res
+        from t_ds_resources
+        where full_name = #{fullName} and is_directory='0'
+    </select>
     <select id="queryResourceByfullNameDirs" resultType="necibook.com.entity.dsentity.Resource" >
         select id,file_name as name,full_name as res
         from t_ds_resources

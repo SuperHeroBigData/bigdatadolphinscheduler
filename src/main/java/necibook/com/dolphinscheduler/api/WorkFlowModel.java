@@ -49,6 +49,6 @@ public interface WorkFlowModel {
      * @param taskName
      * @return
      */
-    Result deleteProcessDefinition(String taskName);
+    Result deleteProcessDefinition(String projectName,String taskName);
 
 }

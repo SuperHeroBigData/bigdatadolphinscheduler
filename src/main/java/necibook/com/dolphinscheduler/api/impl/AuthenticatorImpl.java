@@ -40,8 +40,6 @@ public class AuthenticatorImpl implements Authenticator {
             List<NameValuePair> parameters = new ArrayList<>();
             parameters.add(new BasicNameValuePair("userName", login.getUserName()));
             parameters.add(new BasicNameValuePair("userPassword", login.getPassword()));
-            System.out.println("授权"+parameters);
-            System.out.println("url"+Constant.URL_HEADER+login.getIp()+":"+login.getPort()+"/dolphinscheduler/login");
             URI uri = new URIBuilder(Constant.URL_HEADER+login.getIp()+":"+login.getPort()+"/dolphinscheduler/login")
                     .setParameters(parameters)
                     .build();

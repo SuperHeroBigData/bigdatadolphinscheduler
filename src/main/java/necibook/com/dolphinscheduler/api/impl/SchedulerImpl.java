@@ -61,7 +61,6 @@ public class SchedulerImpl implements ScheduleModel {
     @Override
     public Result createSchedule(Schedule schedule) {
         CloseableHttpResponse response = null;
-        System.out.println(schedule);
         String content = null;
         CloseableHttpClient httpclient = null;
         Result result = new Result();
@@ -69,7 +68,7 @@ public class SchedulerImpl implements ScheduleModel {
         try {
             httpclient = HttpClients.createDefault();
             String hostName = sheetEnv.getIp() + ":" + sheetEnv.getPort();
-            HttpPost httpPost = new HttpPost(Constant.URL_HEADER + hostName + Constant.CREATE_SCHEDULE.replace("${projectName}", sheetEnv.getProjectName()));
+            HttpPost httpPost = new HttpPost(Constant.URL_HEADER + hostName + Constant.CREATE_SCHEDULE.replace("${projectName}", projectName));
             httpPost.setHeader("sessionId", getSessionId().getData());
             List<NameValuePair> parameters = getScheduleCommitParam(schedule);
             parameters.add(new BasicNameValuePair("processDefinitionId", schedule.getProcessDefinitionId()));
@@ -127,7 +126,7 @@ public class SchedulerImpl implements ScheduleModel {
         List<NameValuePair> parameters = new ArrayList<>();
         parameters.add(new BasicNameValuePair("id", String.valueOf(scheduleId)));
         HttpClient httpClient = new HttpClient(parameters, sheetEnv.getIp() + ":" + sheetEnv.getPort() + Constant.ONLINE_SCHEDULE.replace("${projectName}",
-                sheetEnv.getProjectName()), getSessionId().getData(), Constant.POST);
+                projectName), getSessionId().getData(), Constant.POST);
         Result result = new Result();
         httpClient.submit(result);
         return result;
@@ -138,7 +137,7 @@ public class SchedulerImpl implements ScheduleModel {
         List<NameValuePair> parameters = new ArrayList<>();
         parameters.add(new BasicNameValuePair("id", String.valueOf(scheduleId)));
         HttpClient httpClient = new HttpClient(parameters, sheetEnv.getIp() + ":" + sheetEnv.getPort() + Constant.OFFLINE_SCHEDULE.replace("${projectName}",
-                sheetEnv.getProjectName()), getSessionId().getData(), Constant.POST);
+                projectName), getSessionId().getData(), Constant.POST);
         Result result = new Result();
         httpClient.submit(result);
         return result;
@@ -154,7 +153,7 @@ public class SchedulerImpl implements ScheduleModel {
             for (int i = 0; i < schedules.size(); i++) {
                 String releaseState = scheduleMapper.queryReleaseStateByScheduleId(schedules.get(i).getId());
                 if(!"0".equals(releaseState)) {
-                    result = offlineSchedule(schedules.get(i).getId(), sheetEnv.getProjectName());
+                    result = offlineSchedule(schedules.get(i).getId(), schedules.get(i).getProjectName());
                 }
                 List<NameValuePair> scheduleCommitParam = getScheduleCommitParam(schedule);
                 scheduleCommitParam.add(new BasicNameValuePair("id", String.valueOf(schedules.get(i).getId())));

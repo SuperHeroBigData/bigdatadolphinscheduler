@@ -19,7 +19,6 @@ public class ResourceConfig {
     private String resourceCenterDir;
     private String resourceCenterName;
     private String resourceType;
-//    private String udfConfig;
     private String resourceDes;
     private String CRUD;
     private String isValid;

@@ -153,6 +153,12 @@ public interface ResourceMapper extends BaseMapper<Resource> {
      */
     List<ResourceInfo> queryResourceByfullName(@Param("fullName") String fullName);
     /**
+     * query by full name get resourceList precisely
+     * @param fullName
+     * @return
+     */
+    List<ResourceInfo> queryResourceByfullNamePrecise(@Param("fullName") String fullName);
+    /**
      * query by full name get resourceDirs
      * @param fullName
      * @return

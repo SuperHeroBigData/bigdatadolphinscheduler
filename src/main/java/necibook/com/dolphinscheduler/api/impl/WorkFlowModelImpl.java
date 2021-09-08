@@ -17,8 +17,6 @@ import necibook.com.easyexcel.ExcelListener;
 import necibook.com.easyexcel.SheetEnv;
 import necibook.com.enums.RunMode;
 import necibook.com.enums.State;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
@@ -28,17 +26,20 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 
 /**
- * @author mujp
+ * @author franky
  */
 public class WorkFlowModelImpl implements WorkFlowModel {
-    protected static final Log LOGGER = LogFactory.getLog(WorkFlowModelImpl.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(WorkFlowModelImpl.class);
     private final Authenticator authenticator;
     private final SheetEnv sheetEnv;
     private final ProjectMapper projectMapper;
@@ -61,19 +62,19 @@ public class WorkFlowModelImpl implements WorkFlowModel {
         String content = null;
         CloseableHttpClient httpclient = null;
         Result result = new Result();
-        result.setProjectName(sheetEnv.getProjectName());
+        result.setProjectName(processDefinitionJson.getProjectName());
         result.setJobName(processDefinitionJson.getName());
         try {
             httpclient = HttpClients.createDefault();
             String hostName = sheetEnv.getIp() + ":" + sheetEnv.getPort();
-            HttpPost httpPost = new HttpPost(Constant.URL_HEADER + hostName + Constant.WORK_FLOW.replace("${projectName}", sheetEnv.getProjectName()));
+            HttpPost httpPost = new HttpPost(Constant.URL_HEADER + hostName + Constant.WORK_FLOW.replace("${projectName}", processDefinitionJson.getProjectName()));
             httpPost.setHeader("sessionId", getSessionId().getData());
             List<NameValuePair> parameters = new ArrayList<>();
             parameters.add(new BasicNameValuePair("connects", processDefinitionJson.getConnects()));
             parameters.add(new BasicNameValuePair("description", processDefinitionJson.getDescription()));
             parameters.add(new BasicNameValuePair("locations", processDefinitionJson.getLocations()));
             parameters.add(new BasicNameValuePair("processDefinitionJson", processDefinitionJson.getProcessDefinitionJson()));
-            parameters.add(new BasicNameValuePair("projectName", sheetEnv.getProjectName()));
+            parameters.add(new BasicNameValuePair("projectName", processDefinitionJson.getProjectName()));
             parameters.add(new BasicNameValuePair("name", processDefinitionJson.getName()));
             UrlEncodedFormEntity formEntity = new UrlEncodedFormEntity(parameters, "UTF-8");
             LOGGER.info("connects"+processDefinitionJson.getConnects());
@@ -83,15 +84,15 @@ public class WorkFlowModelImpl implements WorkFlowModel {
             LOGGER.info("projectName"+processDefinitionJson.getProjectName());
             LOGGER.info("name"+processDefinitionJson.getName());
             httpPost.setEntity(formEntity);
-            System.out.println("创建工作流post："+Constant.URL_HEADER + hostName + Constant.WORK_FLOW.replace("${projectName}", sheetEnv.getProjectName()));
-            System.out.println("创建工作流信息："+parameters);
+            LOGGER.info("创建工作流post："+Constant.URL_HEADER + hostName + Constant.WORK_FLOW.replace("${projectName}", processDefinitionJson.getProjectName()));
+            LOGGER.info("创建工作流信息参数："+parameters);
             response = httpclient.execute(httpPost);
             content = EntityUtils.toString(response.getEntity(), "UTF-8");
             JSONObject createJobResult = JSONObject.parseObject(content);
             if (Constant.STATE_SUCCESS.equalsIgnoreCase(createJobResult.get(Constant.MSG).toString())) {
+                LOGGER.info("工作流{}创建成功，执行工作流状态释放为Release",processDefinitionJson.getName());
                 String project_name=processDefinitionJson.getProjectName();
                 int processId = projectMapper.queryByName(project_name).getId();
-                System.out.println("processId:"+processId+","+"name:"+processDefinitionJson.getName());
                 necibook.com.entity.dsentity.ProcessDefinition processDefinition = processDefinitionMapper.verifyByDefineName(processId, processDefinitionJson.getName());
                 LineState lineState = new LineState();
                 lineState.setFlag(Constant.ONLINE);
@@ -212,29 +213,31 @@ public class WorkFlowModelImpl implements WorkFlowModel {
     }
 
     @Override
-    public Result deleteProcessDefinition(String taskName) {
-        LOGGER.info("删除任务："+taskName);
+    public Result deleteProcessDefinition(String projectName,String taskName) {
+        LOGGER.info("删除任务："+projectName+"-"+taskName);
         //删除任务
-        String projectName = sheetEnv.getProjectName();
         int projectId = projectMapper.queryByName(projectName).getId();
-        necibook.com.entity.dsentity.ProcessDefinition processDefinitionNew = processDefinitionMapper.verifyByDefineName(projectId, taskName);
-        String processDefinitionId = String.valueOf(processDefinitionNew.getId());
-        if (processDefinitionId.isEmpty()){
-            throw new IllegalArgumentException("processDefinitionId 为空，当前任务不存在");
+        Integer processId = processDefinitionMapper.queryByDefineName(projectId, taskName);
+        String processDefinitionId = String.valueOf(processId);
+        if (Objects.isNull(processId)){
+            LOGGER.info("当前项目{}任务{}已经删除",projectName,taskName);
+            Result result = new Result();
+            result.setState("SUCCESS");
+            return result;
         }
         LineState lineState = new LineState();
         lineState.setFlag(Constant.OFFLINE);
         lineState.setJobName(taskName);
-        lineState.setProjectName(sheetEnv.getProjectName());
+        lineState.setProjectName(projectName);
         lineState.setProcessDefinitionId(processDefinitionId);
         String hostName = sheetEnv.getIp() + ":" + sheetEnv.getPort();
         Result result = new Result();
         result = releaseState(lineState, result, hostName);
         System.out.println(result);
         List<NameValuePair> parameters = new ArrayList<>();
-        parameters.add(new BasicNameValuePair("projectName", sheetEnv.getProjectName()));
+        parameters.add(new BasicNameValuePair("projectName", projectName));
         parameters.add(new BasicNameValuePair("processDefinitionId", processDefinitionId));
-        HttpClient httpClient = new HttpClient(parameters, hostName + Constant.PROCESS_DELETE.replace("${projectName}", sheetEnv.getProjectName()), getSessionId().getData(), Constant.GET);
+        HttpClient httpClient = new HttpClient(parameters, hostName + Constant.PROCESS_DELETE.replace("${projectName}",projectName), getSessionId().getData(), Constant.GET);
         return httpClient.submit(result);
     }
 }

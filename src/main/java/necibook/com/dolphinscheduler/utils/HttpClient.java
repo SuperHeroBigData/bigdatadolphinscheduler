@@ -119,7 +119,7 @@ public class HttpClient {
             result.setState(Constant.STATE_ERROR);
             result.setMsg(e.toString());
         } finally {
-            close(closeableHttpClient, response);
+             // close(closeableHttpClient, response);
         }
         return result;
     }

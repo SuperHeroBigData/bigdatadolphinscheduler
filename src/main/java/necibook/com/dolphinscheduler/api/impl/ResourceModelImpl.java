@@ -103,7 +103,6 @@ public class ResourceModelImpl implements ResourceModel {
         parameters.add(new BasicNameValuePair("type","FILE"));
         HttpClient httpClient = new HttpClient(parameters, hostName + Constant.CREATE_DIRECTORY, getSessionId().getData(), Constant.POST);
         return httpClient.submit(result);
-
     }
 
     @Override
@@ -121,16 +120,14 @@ public class ResourceModelImpl implements ResourceModel {
         int pid=-1;
         String hostName = sheetEnv.getIp() + ":" + sheetEnv.getPort();
         String fullName = resource.getFullName();
-        LOGGER.info("创建资源中心目录："+ fullName);
+        LOGGER.info("上传文件："+ fullName);
         Result result = new Result();
         int i = fullName.lastIndexOf("/");
         if(i==0)
         {
             i=i+1;
         }
-        System.out.println("index"+i);
         String parent= fullName.substring(0, i);
-        System.out.println(parent);
         if(!parent.equals("/"))
         {
             List<Resource> resourceInfos1=resourceMapper.queryResourceByfullNameDirs(parent);
@@ -152,13 +149,13 @@ public class ResourceModelImpl implements ResourceModel {
             currentDir=fullName.substring(0,fullName.lastIndexOf("/"));
         }
         //判断资源中心是否存在资源
-        List<ResourceInfo> resourceInfos = resourceMapper.queryResourceByfullName(fullName);
+        List<ResourceInfo> resourceInfos = resourceMapper.queryResourceByfullNamePrecise(fullName);
         String url= null;
         CloseableHttpClient client = HttpClients.createDefault();
         if(!resourceInfos.isEmpty())
         {
-            LOGGER.warn("当前资源中心已经存在：resourceDirName:"+ fullName);
-            result.setMsg("当前资源中心已经存在：resourceDirName:"+ fullName);
+            LOGGER.warn("当前资源中心已经存在：resourceName:"+ fullName);
+            result.setMsg("当前资源中心已经存在：resourceName:"+ fullName);
             //执行更新逻辑
             List<NameValuePair> parameters = new ArrayList<>();
             parameters.add(new BasicNameValuePair("id",String.valueOf(resourceInfos.get(0).getId())));
@@ -166,7 +163,10 @@ public class ResourceModelImpl implements ResourceModel {
             parameters.add(new BasicNameValuePair("type","FILE"));
             try {
                 url = Constant.URL_HEADER+hostName + Constant.UPDATE_RESOURCE+"?"+ EntityUtils.toString(new UrlEncodedFormEntity(parameters,"UTF-8"));
-                return new HttpClient(parameters,url,getSessionId().getData(),Constant.POST).postFile(url,result,client,resource.getFileName());
+                result= new HttpClient(parameters,url,getSessionId().getData(),Constant.POST).postFile(url,result,client,resource.getFileName());
+                result.setJobName(resource.getFileName());
+                result.setProjectName("update");
+                return result;
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -178,40 +178,13 @@ public class ResourceModelImpl implements ResourceModel {
         parameters.add(new BasicNameValuePair("type","FILE"));
         try {
             url = Constant.URL_HEADER+hostName + Constant.CREATE_RESOURCE+"?"+ EntityUtils.toString(new UrlEncodedFormEntity(parameters,"UTF-8"));
-            return new HttpClient(parameters,url,getSessionId().getData(),Constant.POST).postFile(url,result,client,resource.getFileName());
+            result= new HttpClient(parameters,url,getSessionId().getData(),Constant.POST).postFile(url,result,client,resource.getFileName());
+            result.setJobName(resource.getFileName());
+            result.setProjectName("create");
         } catch (IOException e) {
+            LOGGER.error("读取文件失败");
             e.printStackTrace();
         }
-/*        HttpPost httpPost = new HttpPost(url);
-        httpPost.setHeader("sessionId",getSessionId().getData());
-        httpPost.setConfig(config);
-        MultipartEntityBuilder multipartEntityBuilder = MultipartEntityBuilder.create();
-        multipartEntityBuilder.setCharset(Charset.forName("utf-8"));
-        multipartEntityBuilder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
-        multipartEntityBuilder.addPart("file",new FileBody(new File(resource.getFileName())));
-        httpPost.setEntity(multipartEntityBuilder.build());
-        try {
-            response = client.execute(httpPost);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        try {
-            String s1 = EntityUtils.toString(response.getEntity(), "UTF-8");
-            result.setState(Constant.STATE_ERROR);
-            result.setMsg(s1);
-
-            Object data = JSONObject.parseObject(s1).get("data");
-            result.setData(data == null ? "" : data.toString());
-
-            Object code = JSONObject.parseObject(s1).get("code");
-            result.setState((int)code == 0 ? Constant.STATE_SUCCESS : Constant.STATE_ERROR);
-
-            Object msg = JSONObject.parseObject(s1).get("msg");
-            result.setMsg(msg == null ? "" : msg.toString());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return result;*/
     return result;
     }
 }

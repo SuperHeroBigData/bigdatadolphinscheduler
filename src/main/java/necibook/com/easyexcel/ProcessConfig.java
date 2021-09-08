@@ -29,13 +29,13 @@ public class ProcessConfig {
     @ExcelProperty(value = "工作流描述",index=3)
     private String description="";
     @ExcelProperty(value = "超时告警",index=4)
-    private int timeOut=3;
+    private int timeOut=0;
     @ExcelProperty(value = "全局变量",index=5)
     private String globalParams="";
     @ExcelProperty(value = "定时CRON",index=6)
     private String cron="";
     @ExcelProperty(value = "开始时间",index=7)
-    private String startTime="2021-12-31";
+    private String startTime="2021-08-31";
     @ExcelProperty(value = "结束时间",index=8)
     private String endTime="2025-12-31";
     @ExcelProperty(value = "失败策略",index=9)

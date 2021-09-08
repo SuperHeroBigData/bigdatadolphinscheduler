@@ -22,7 +22,7 @@ public class CommonConfig {
     private String RunFlag="NORMAL";
 
     private String maxRetryTimes="3";
-    private int retryInterval=30;
+    private int retryInterval=1;
 
     private String taskInstancePriority= Priority.MEDIUM.name();
 

@@ -98,23 +98,6 @@ public class ParamUtils {
      * @return
      */
     public static SheetEnv getEnvInfo() {
-/*        List<SheetEnv> envList = getSheetEnvList();
-        if (CollectionUtils.isEmpty(envList)) {
-            throw new RuntimeException("环境队列为空。");
-        }
-        String present = null;
-        for (SheetEnv sheetEnv : envList
-        ) {
-            if (Objects.isNull(present)) {
-                present = sheetEnv.getPresent();
-            }
-
-            if (Objects.nonNull(present) &&
-                    Objects.equals(present, sheetEnv.getEnvironment())) {
-                return sheetEnv;
-            }
-        }
-        return null;*/
         SheetEnv sheetEnv = AnalysisApplication.sheetEnv;
         return sheetEnv;
     }
@@ -143,6 +126,7 @@ public class ParamUtils {
      * @return
      */
     public static void commitTask(ProcessDefinition processDefinition){
+        LOGGER.info("执行工作流{}逻辑{}",processDefinition.getName(),AnalysisApplication.sheetEnv.getJobDDL());
         BuildTask buildTask = new BuildTask(AnalysisApplication.sheetEnv);
         Result result= null;
         switch (DDL.valueOf(getInstanceEnv().getJobDDL().toUpperCase())) {
@@ -152,7 +136,7 @@ public class ParamUtils {
                 executeResult(result);
                 break;
             case DELETE:
-                result = buildTask.batchDeleteWork(processDefinition.getName());
+                result = buildTask.batchDeleteWork(processDefinition.getProjectName(),processDefinition.getName());
                 result.setJobName(processDefinition.getName());
                 executeResult(result);
                 break;
@@ -173,6 +157,7 @@ public class ParamUtils {
      * @return
      */
     public static void commitSchedule(Schedule schedule){
+        LOGGER.info("执行任务工作流{}定时逻辑{}",schedule.getProcessDefinitionId(),schedule.getSchedule().getCrontab());
         BuildTask buildTask = new BuildTask(AnalysisApplication.sheetEnv);
         switch (DDL.valueOf(getInstanceEnv().getJobDDL().toUpperCase())) {
             case CREATE:

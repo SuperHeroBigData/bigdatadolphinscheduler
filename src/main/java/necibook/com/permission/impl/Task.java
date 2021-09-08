@@ -14,13 +14,6 @@ import java.util.Objects;
 
 import static necibook.com.dolphinscheduler.utils.RandomUtil.taskId;
 
-/**
- * @ClassName Task
- * @Description TODO
- * @Author jianping.mu
- * @Date 2020/11/30 7:33 下午
- * @Version 1.0
- */
 abstract class AbstractTask {
     private final SheetParam sheet;
     private final ParentTask parentTask;
@@ -43,7 +36,6 @@ abstract class AbstractTask {
 
     public ParentTask convertToData() {
         String taskId = taskId(Constants.RANDOM_ID);
-
         parentTask.setId(taskId);
         parentTask.setDescription(sheet.getDescription());
         parentTask.setType(sheet.getTaskType().toUpperCase());

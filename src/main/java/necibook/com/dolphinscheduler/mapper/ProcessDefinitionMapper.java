@@ -47,7 +47,7 @@ public interface ProcessDefinitionMapper extends BaseMapper<ProcessDefinition> {
      * @param name name
      * @return process definition
      */
-    ProcessDefinition queryByDefineName(@Param("projectId") int projectId,
+    Integer queryByDefineName(@Param("projectId") int projectId,
                                         @Param("processDefinitionName") String name);
 
     /**

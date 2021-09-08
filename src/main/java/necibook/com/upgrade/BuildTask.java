@@ -34,8 +34,8 @@ public class BuildTask {
         return new WorkFlowModelImpl(login,authenticator).updateProcessDefinition(processDefinition);
     }
 
-    public Result batchDeleteWork(String taskName){
-        return new WorkFlowModelImpl(login,authenticator).deleteProcessDefinition(taskName);
+    public Result batchDeleteWork(String projectName,String taskName){
+        return new WorkFlowModelImpl(login,authenticator).deleteProcessDefinition(projectName,taskName);
     }
 
     public Result createWorkSchedule(Schedule schedule){

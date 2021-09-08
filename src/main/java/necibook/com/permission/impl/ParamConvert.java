@@ -2,15 +2,12 @@ package necibook.com.permission.impl;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import necibook.com.dolphinscheduler.pojo.ProcessDefinition;
 import necibook.com.easyexcel.CommonConfig;
 import necibook.com.easyexcel.SheetParam;
 import necibook.com.entity.Connects;
-import necibook.com.entity.Location;
 import necibook.com.entity.ParentTask;
 import necibook.com.enums.TaskType;
 import necibook.com.process.Property;
-import necibook.com.utils.Constants;
 import necibook.com.utils.ParamUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,17 +17,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 
-import static necibook.com.dolphinscheduler.utils.RandomUtil.randomInteger;
-import static necibook.com.utils.ParamUtils.commitTask;
-
-/**
- * @ClassName SheetParamConvert
- * @Description TODO
- * @Author jianping.mu
- * @Date 2020/11/28 2:10 下午
- * @Version 1.0
- * 解析excel to task
- */
+/** 节点参数封装
+ * @author franky
+ * @date 2021/08/17 14:40
+ **/
 public class ParamConvert {
     private static final Logger LOGGER = LoggerFactory.getLogger(ParamConvert.class);
     private List<Property> localParamsList;
@@ -41,15 +31,8 @@ public class ParamConvert {
     private final SheetParam sheetParam;
     // 标识是否存在Connects连线
     private boolean flag = true;
-    private final JSONObject locations;
-
-
-    private final StringBuffer dependenceIdAll;
-
     public ParamConvert(SheetParam sheetParam) {
         this.sheetParam = sheetParam;
-        this.locations = new JSONObject();
-        this.dependenceIdAll = new StringBuffer(5);
         call();
     }
 
@@ -72,18 +55,10 @@ public class ParamConvert {
         List<HashMap<String, Boolean>> targetarr = new ArrayList<>();
         String taskType = sheetParam.getTaskType();
         CommonConfig commonConfig = JSON.parseObject(sheetParam.getCommonConfig(), CommonConfig.class);
-        if(commonConfig.getPreTasks().split(",").length==0)
-        {
-            flag=false;
-        }
         analysisType(taskType, connects, targetarr,localParamsList);
-/*        String dependentId = null;
-        String dependentName = null;*/
         locationsRam.put(taskRam.get(sheetParam.getSubApplication()),new ArrayList<>());
         ParentTask parentTask = tasksMap.get(sheetParam.getSubApplication());
-        System.out.println(tasksMap.toString());
         List<String> preTasks = parentTask.getPreTasks();
-        System.out.println(preTasks.toString());
         if(!"[]".equals(preTasks.toString())){
          for (int i = 0; i < preTasks.size(); i++) {
             String taskId = taskRam.get(preTasks.get(i));
@@ -92,52 +67,7 @@ public class ParamConvert {
 
            }
         }
-        // 遍历任务的依赖，封装location参数
-/*        for (Map<String, Boolean> tar :
-                targetarr) {
-            for (String key : tar.keySet()) {
-                boolean value = tar.get(key);
-                String[] taskInfo = key.split("\\|");
-                String taskId = taskInfo[0];
-                String taskName = taskInfo[1];
-
-                locations.fluentPutAll(getLocation(taskId, taskName, true));
-
-*//*                if (value) {
-                    dependentId = taskId;
-                    dependentName = taskName;
-                } else {
-                    dependenceIdAll.append(taskId).append(",");
-                    locations.fluentPutAll(getLocation(taskId, taskName, false));
-                }*//*
-            }
-        }*/
     }
-
-    /**
-     * 提交task到ds
-     *
-     * @param json 定义工作流
-     * @param taskName 工作流名称
-     * @return
-     */
-    public void aggregateTask(String json, String taskName) {
-        try {
-            LOGGER.info("【aggregateTask】提交当前任务："+taskName);
-            ProcessDefinition processDefinition = new ProcessDefinition();
-            processDefinition.setConnects(JSONObject.toJSONString(connectsList));
-            processDefinition.setDescription(sheetParam.getDescription());
-            processDefinition.setGlobalParams("[]");
-            processDefinition.setName(taskName);
-            processDefinition.setProcessDefinitionJson(json);
-            processDefinition.setLocations(locations.toJSONString());
-            commitTask(processDefinition);
-        }catch (Exception e){
-            e.printStackTrace();
-        }
-    }
-
-
     /**
      * 执行不同分支
      *
@@ -156,8 +86,6 @@ public class ParamConvert {
                 map.put(shellId + "|" + shellName, flag);
                 tasksMap.put(shellName,parentTask);
                 getLocationConnect(connects, shellId);
-               /* taskTypeArr.fluentAdd(JSONArray.toJSON(parentTask));*/
-
                 break;
             case DEPENDENT:
                 parentTask=new DependTaskImpl(sheetParam,localParamsList,new ParentTask(),flag).convertToData();
@@ -168,13 +96,6 @@ public class ParamConvert {
                 getLocationConnect(connects, depId);
                 break;
             case PROCEDURE:
-/*                StoredProcedureParameters storedProcedureParameters = new StoreProducerTaskImpl(sheetParam,
-                        localParamsList, new StoredProcedureParameters(), flag).convertToData();
-                String procedureId = storedProcedureParameters.getId();
-                String procedureName = storedProcedureParameters.getName();
-                map.put(procedureId + "|" + procedureName, flag);
-                getLocationConnect(connects, procedureId);
-                taskTypeArr.fluentAdd(JSONArray.toJSON(storedProcedureParameters));*/
                 break;
             case SUB_PROCESS:
                 parentTask = new SubProcessImpl(sheetParam, localParamsList, new ParentTask(), flag).convertToData();
@@ -196,38 +117,8 @@ public class ParamConvert {
                 throw new IllegalArgumentException("该任务类型不存在："+type.toUpperCase());
         }
         targetarr.add(map);
+        LOGGER.info("任务名{}参数封装完毕",sheetParam.getSubApplication());
     }
-
-    /**
-     * 初始化作业信息 location部分，主要体现在画布中位置和依赖关系
-     *
-     * @param taskId 任务Id
-     * @param taskName 任务名
-     * @return location依赖关系
-     */
-    public JSONObject getLocation(String taskId, String taskName, boolean flag) {
-        Location location = new Location();
-        JSONObject jsonLocation = new JSONObject();
-        if (!flag) {
-            location.setNodenumber("1");
-        } else {
-            location.setTargetarr(dependenceIdAll.substring(0, dependenceIdAll.length() - 1));
-            if(dependenceIdAll.toString().split(",").length>1)
-            {
-                location.setNodenumber("2");
-            }else {
-                location.setNodenumber("0");
-            }
-        }
-        location.setX(randomInteger(Constants.NUMBER));
-        location.setY(randomInteger(Constants.NUMBER));
-        location.setName(taskName);
-
-        jsonLocation.put(taskId, JSONObject.toJSON(location));
-        return jsonLocation;
-    }
-
-
     /**
      * 设置connect参数
      *
@@ -255,11 +146,9 @@ public class ParamConvert {
                 connects.setEndPointTargetId(id);
                 connects.setEndPointSourceId(taskRam.get(preTask));
                 connectsList.add(connects);
-                dependenceIdAll.append(taskRam.get(preTask)).append(",");
             }
         }
         //任务放入暂存区
         taskRam.put(sheetParam.getSubApplication(),id);
     }
-
 }

@@ -7,11 +7,11 @@ import necibook.com.AnalysisApplication;
 import necibook.com.dolphinscheduler.exceptions.TasksException;
 import necibook.com.dolphinscheduler.mapper.ProcessDefinitionMapper;
 import necibook.com.dolphinscheduler.mapper.ProjectMapper;
+import necibook.com.dolphinscheduler.mapper.ScheduleMapper;
 import necibook.com.dolphinscheduler.pojo.ProcessDefinition;
 import necibook.com.dolphinscheduler.pojo.Schedule;
 import necibook.com.dolphinscheduler.utils.DBManager;
 import necibook.com.easyexcel.ExcelListener;
-import necibook.com.easyexcel.SheetEnv;
 import necibook.com.easyexcel.SheetParam;
 import necibook.com.entity.Connects;
 import necibook.com.entity.Location;
@@ -30,8 +30,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static necibook.com.dolphinscheduler.utils.RandomUtil.randomInteger;
-import static necibook.com.utils.ParamUtils.commitSchedule;
-import static necibook.com.utils.ParamUtils.commitTask;
+import static necibook.com.utils.ParamUtils.*;
 
 /**
  * @ClassName SubProcessTaskImpl
@@ -55,10 +54,12 @@ public class SubProcessTaskImpl implements TaskCommit {
 
     private ProcessDefinitionMapper processDefinitionMapper;
     private ProjectMapper projectMapper;
+    private ScheduleMapper scheduleMapper;
 
     public SubProcessTaskImpl() {
         this.projectMapper = (ProjectMapper) DBManager.setUp(ProjectMapper.class);
         this.processDefinitionMapper = (ProcessDefinitionMapper) DBManager.setUp(ProcessDefinitionMapper.class);
+        this.scheduleMapper=(ScheduleMapper)DBManager.setUp(ScheduleMapper.class);
     }
 
     public SubProcessTaskImpl(SheetParam sheet) {
@@ -260,56 +261,42 @@ public class SubProcessTaskImpl implements TaskCommit {
      * @return 返回执行结果
      */
     @Override
-    public void getTaskParam(ProcessDefinition processDefinition) {
-
-/*        JSONObject jsonObject = replaceNodeNumber();*/
+    public void  getTaskParam(ProcessDefinition processDefinition) {
         createJob(processDefinition);
-/*        LOGGER.info("依赖关系locations参数：{}", jsonObject.toJSONString());
-        processDefinition.setLocations(jsonObject.toJSONString());*/
+        int project_id = projectMapper.queryByName(processDefinition.getProjectName()).getId();
+        if(!Objects.isNull(processDefinitionMapper.queryByDefineName(project_id,processDefinition.getName())))
+        {
+            AnalysisApplication.sheetEnv.setJobDDL("update");
+        }
         commitTask(processDefinition);
-//        SheetEnv instanceEnv = getInstanceEnv();
-        SheetEnv sheetEnv = AnalysisApplication.sheetEnv;
+        if(ExcelListener.scheduleMap.isEmpty())
+        {
+            LOGGER.info("当前工作流{}无配置定时信息",processDefinition.getName());
+            AnalysisApplication.sheetEnv.setJobDDL("create");
+            return;
+        }
         Schedule schedule = ExcelListener.scheduleMap.get(processDefinition.getName());
-        int project_id = projectMapper.queryByName(schedule.getProjectName()).getId();
-        int process_id = processDefinitionMapper.queryByDefineName(project_id, processDefinition.getName()).getId();
+        processDefinitionMapper = (ProcessDefinitionMapper)DBManager.setUp(ProcessDefinitionMapper.class);
+        Integer process_id = processDefinitionMapper.queryByDefineName(project_id, processDefinition.getName());
+
         schedule.setProcessDefinitionId(String.valueOf(process_id));
-//        Schedule taskSchedule = getTaskSchedule(sheetEnv,processDefinition.getName());
         LOGGER.info("Job定时信息：{}", JSONObject.toJSONString(schedule));
+        AnalysisApplication.sheetEnv.setJobDDL("create");
+//        int process_id1 = process_id.intValue();
+        List<necibook.com.entity.dsentity.Schedule> schedules = scheduleMapper.queryByProcessDefinitionId(process_id);
+        if(!schedules.isEmpty())
+        {
+            AnalysisApplication.sheetEnv.setJobDDL("update");
+        }
         commitSchedule(schedule);
-    }
-    /**
-     * 创建新任务
-     *
-     * @param processDefinition
-     */
-    public void createJob(ProcessDefinition processDefinition) {
-
-/*      TaskParameters taskParameters = new TaskParameters();
-        taskParameters.setGlobalParams(new ArrayList<>());
-        JSONArray dependenceDefinition = getDependenceDefinition();
-
-        LOGGER.info("依赖关系tasks参数：{}", dependenceDefinition);
-        taskParameters.setTasks(dependenceDefinition);
-        taskParameters.setTenantId(new InstanceTask().getTenantId());
-        taskParameters.setTimeout(iquantex.com.utils.Constant.TIMEOUT);
-
-        String jsonString = JSONObject.toJSONString(taskParameters, SerializerFeature.WriteMapNullValue);
-
-
-        LOGGER.info("依赖关系connect参数：{}", JSONObject.toJSONString(LIST_CONNECTS));
-        processDefinition.setConnects(JSONObject.toJSONString(LIST_CONNECTS));
-
-        processDefinition.setDescription("");
-
-        processDefinition.setGlobalParams("[]");
-        processDefinition.setProcessDefinitionJson(jsonString);*/
-        locationsPackage(processDefinition);
+        AnalysisApplication.sheetEnv.setJobDDL("create");
     }
     /*
         封装locations
      */
-    public ProcessDefinition locationsPackage(ProcessDefinition processDefinition)
+    public ProcessDefinition createJob(ProcessDefinition processDefinition)
     {
+        LOGGER.info("绘制工作流{}，生成有向无环图",processDefinition.getName());
         HashMap<String, ArrayList<String>> locationsRam = ParamConvert.locationsRam;
         HashMap<String,ParentTask> taskLists = ParamConvert.tasksMap;
         Iterator<Map.Entry<String, ParentTask>> iterator = taskLists.entrySet().iterator();
@@ -337,7 +324,6 @@ public class SubProcessTaskImpl implements TaskCommit {
             String s = JSONObject.toJSONString(location);
             String id = JSONObject.toJSONString(next.getId());
             String locations=id+":"+s;
-            System.out.println(locations);
             locationsList.add(locations);
         }
         processDefinition.setConnects(JSONObject.toJSONString(ParamConvert.connectsList));
@@ -357,7 +343,6 @@ public class SubProcessTaskImpl implements TaskCommit {
         {
 
             ParentTask value = iterator1.next().getValue();
-            System.out.println("preTasks"+value.getPreTasks());
             if("[]".equals(value.getPreTasks().toString()))
             {
                 value.setPreTasks(new ArrayList<>());
@@ -369,24 +354,5 @@ public class SubProcessTaskImpl implements TaskCommit {
         String jsonDefination = JSONObject.toJSONString(processData, SerializerFeature.WriteMapNullValue);
         processDefinition.setProcessDefinitionJson(jsonDefination);
         return processDefinition;
-    }
-
-    /**
-     * Job定时
-     *
-     * @param instanceEnv
-     * @param jobName
-     * @return
-     */
-    public Schedule getTaskSchedule(SheetEnv instanceEnv, String jobName) {
-        HashMap<String, Schedule> scheduleMap = ExcelListener.scheduleMap;
-        Schedule schedule = scheduleMap.get(jobName);
-        int projectId = projectMapper.queryByName(instanceEnv.getProjectName()).getId();
-        necibook.com.entity.dsentity.ProcessDefinition processDefinition = processDefinitionMapper.verifyByDefineName(projectId, jobName);
-//        ProcessDefinition processDefinition = new InstanceTask().getProcessDefinitionId(jobName, instanceEnv.getProjectName());
-
-        schedule.setProcessDefinitionId(String.valueOf(projectId));
-        schedule.setProjectName(instanceEnv.getProjectName());
-        return schedule;
     }
 }

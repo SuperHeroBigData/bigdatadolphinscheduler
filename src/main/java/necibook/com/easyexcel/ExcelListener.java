@@ -11,11 +11,14 @@ import necibook.com.dolphinscheduler.mapper.TenantMapper;
 import necibook.com.dolphinscheduler.mapper.WorkerGroupMapper;
 import necibook.com.dolphinscheduler.pojo.Cron;
 import necibook.com.dolphinscheduler.pojo.ProcessDefinition;
+import necibook.com.dolphinscheduler.pojo.Result;
 import necibook.com.dolphinscheduler.pojo.Schedule;
 import necibook.com.dolphinscheduler.utils.DBManager;
+import necibook.com.entity.dsentity.Tenant;
 import necibook.com.entity.dsentity.WorkerGroup;
 import necibook.com.permission.impl.ParamConvert;
 import necibook.com.permission.impl.SubProcessTaskImpl;
+import necibook.com.upgrade.BuildTask;
 import necibook.com.utils.Constants;
 import necibook.com.utils.ParamUtils;
 import org.slf4j.Logger;
@@ -23,19 +26,11 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-/**
- * @ClassName ExcelListener
- * @Description TODO
- * @Author jianping.mu
- * @Date 2020/11/24 1:44 下午
- * @Version 1.0
- */
+
 public class ExcelListener<T> extends AnalysisEventListener<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ExcelListener.class);
     private static final List<SheetEnv> SHEET_ENV_LIST = new ArrayList<>();
     private static final StringBuilder JOB_NAME = new StringBuilder(10);
-    private static Integer currentSheetNo=0;
-    private static String currentSheetName="";
     public static HashMap<String,ProcessDefinition> processMap=new HashMap<>();
     public static HashMap<String,Schedule> scheduleMap=new HashMap<>();
     /**
@@ -82,9 +77,7 @@ public class ExcelListener<T> extends AnalysisEventListener<T> {
     @SneakyThrows
     @Override
     public void invoke(T t, AnalysisContext context) {
-        if ( t instanceof ResourceConfig)
-        {
-        }else if(t instanceof ProcessConfig)
+    if(t instanceof ProcessConfig)
         {
             //执行工作流参数配置逻辑
             ProcessConfig processConfig=(ProcessConfig) t;
@@ -93,53 +86,56 @@ public class ExcelListener<T> extends AnalysisEventListener<T> {
             processDefinition.setDescription(processConfig.getDescription());
             processDefinition.setGlobalParamList(ParamUtils.taskParamToList(processConfig.getGlobalParams()));
             TenantMapper tenantMapper = (TenantMapper) DBManager.setUp(TenantMapper.class);
-            int id = tenantMapper.queryByTenantCode(processConfig.getTenantId()).get(0).getId();
-            System.out.println(id);
+            List<Tenant> tenants = tenantMapper.queryByTenantCode(processConfig.getTenantId());
+            if(tenants.isEmpty())
+            {
+                LOGGER.error("当前租户{}ds中不存在",processConfig.getTenantId());
+                throw new RuntimeException("当前租户不存在");
+            }
+            int id = tenants.get(0).getId();
+            processDefinition.setName(processConfig.getProcessName());
             processDefinition.setTenantId(id);
             processDefinition.setTimeout(processConfig.getTimeOut());
             processDefinition.setDescription(processConfig.getDescription());
             processDefinition.setReceivers(processConfig.getReciever());
             processDefinition.setReceiversCc(processConfig.getCcReciever());
-            Schedule schedule=new Schedule();
-            schedule.setFailureStrategy(processConfig.getFailureStrategy());
-            schedule.setProcessInstancePriority(processConfig.getPriority());
-            Cron cron = new Cron();
-            cron.setStartTime(DateUtils.parseDate(processConfig.getStartTime()));
-            cron.setEndTime(DateUtils.parseDate(processConfig.getEndTime()));
-            cron.setCrontab(processConfig.getCron());
-            schedule.setSchedule(cron);
-            schedule.setProjectName(processConfig.getProjectName());
-            schedule.setReceivers(processConfig.getReciever());
-            schedule.setReceiversCc(processConfig.getCcReciever());
-            schedule.setWarningGroupId(processConfig.getAlermGroup());
-            schedule.setWarningType(processConfig.getWarningType());
-            schedule.setWorkerGroupId(1L);
-            WorkerGroupMapper workerGroupMapper = (WorkerGroupMapper) DBManager.setUp(WorkerGroupMapper.class);
-            if(!"default".equals(processConfig.getWorkerGroup()))
+            if(!processConfig.getCron().equals(""))
             {
-                try {
-                    WorkerGroup workerGroup = workerGroupMapper.queryWorkerGroupByName(processConfig.getWorkerGroup()).get(0);
-                    schedule.setWorkerGroupId(workerGroup.getId());
-                }catch (Exception e)
+                Schedule schedule=new Schedule();
+                schedule.setFailureStrategy(processConfig.getFailureStrategy());
+                schedule.setProcessInstancePriority(processConfig.getPriority());
+                Cron cron = new Cron();
+                cron.setStartTime(DateUtils.parseDate(processConfig.getStartTime()));
+                cron.setEndTime(DateUtils.parseDate(processConfig.getEndTime()));
+                cron.setCrontab(processConfig.getCron());
+                schedule.setSchedule(cron);
+                schedule.setProjectName(processConfig.getProjectName());
+                schedule.setReceivers(processConfig.getReciever());
+                schedule.setReceiversCc(processConfig.getCcReciever());
+                schedule.setWarningGroupId(processConfig.getAlermGroup());
+                schedule.setWarningType(processConfig.getWarningType());
+                schedule.setWorkerGroupId(1L);
+                WorkerGroupMapper workerGroupMapper = (WorkerGroupMapper) DBManager.setUp(WorkerGroupMapper.class);
+                if(!"default".equals(processConfig.getWorkerGroup()))
                 {
-                    e.printStackTrace();
-                    throw new RuntimeException("工作组不存在");
+                    try {
+                        WorkerGroup workerGroup = workerGroupMapper.queryWorkerGroupByName(processConfig.getWorkerGroup()).get(0);
+                        schedule.setWorkerGroupId(workerGroup.getId());
+                    }catch (Exception e)
+                    {
+                        LOGGER.error("当前告警组不存在，告警组{}",processConfig.getWorkerGroup());
+                        e.printStackTrace();
+                        throw new RuntimeException("工作组不存在");
+                    }
                 }
+                scheduleMap.put(processConfig.getProcessName(),schedule);
             }
+
+            //工作流及定时调度信息放于map缓存中
             processMap.put(processConfig.getProcessName(),processDefinition);
-            scheduleMap.put(processConfig.getProcessName(),schedule);
         }else {
             //执行工作流封装逻辑
-        Integer sheetNo = context.readSheetHolder().getReadSheet().getSheetNo();
-        if(!sheetNo.equals(currentSheetNo))
-        {
-            //执行提交工作流指令
-            ProcessDefinition processDefinition = new ProcessDefinition();
-            String workFlowName=currentSheetName;
-        }
         ReadSheetHolder readSheetHolder = context.readSheetHolder();
-        currentSheetName = readSheetHolder.getReadSheet().getSheetName();
-        currentSheetNo=readSheetHolder.getReadSheet().getSheetNo();
         convert(t, readSheetHolder.getSheetNo());}
     }
 
@@ -156,11 +152,29 @@ public class ExcelListener<T> extends AnalysisEventListener<T> {
         Integer sheetNo = readSheetHolder.getSheetNo();
         LOGGER.info("Sheet页名字：{}，Sheet页下标：{}",
                 sheetName, sheetNo + "。读取完毕！！！");
-
+        if(AnalysisApplication.sheetEnv.getJobDDL().toUpperCase().equals("DELETE"))
+        {
+            Collection<ProcessDefinition> values = processMap.values();
+            for (ProcessDefinition value : values) {
+                String projectName = value.getProjectName();
+                String processName = value.getName();
+                Result result = new BuildTask(AnalysisApplication.sheetEnv).batchDeleteWork(projectName, processName);
+                if(result.getState().equals("SUCCESS"))
+                {
+                    LOGGER.info("当前项目：{}，工作流{} 删除成功",projectName,processName);
+                }else
+                {
+                    LOGGER.error("当前项目：{}，工作流{} 删除失败",projectName,processName);
+                    LOGGER.error("失败信息"+result.toString());
+                    throw new RuntimeException("删除任务失败");
+                }
+            }
+            return;
+        }
         //TODO 按照依赖关系生成Job
-        if (sheetNo >= Constants.SHEET_NO) {
+        if (sheetNo >= Constants.SHEET_NO && !AnalysisApplication.sheetEnv.getJobDDL().toUpperCase().equals("DELETE")) {
             String jobNames =sheetName;
-            System.out.println("工作流名称"+sheetName);
+            LOGGER.info("开始生成工作流{}",jobNames);
             ProcessDefinition processDefinition = processMap.get(jobNames);
             processDefinition.setName(jobNames);
             new SubProcessTaskImpl().getTaskParam(processDefinition);
@@ -174,16 +188,13 @@ public class ExcelListener<T> extends AnalysisEventListener<T> {
     }
 
     /**
-     * 转换不同分支
+     * 执行有向无环图绘制
      *
      * @param data
+     * @param sheetNumber
      */
     public void convert(T data, int sheetNumber) {
         if (data instanceof SheetParam) {
-
-            if (Objects.isNull(AnalysisApplication.sheetEnv)) {
-                throw new RuntimeException("初始化环境变量sheetEnv为空。");
-            }
             SheetParam sheetParam = (SheetParam) data;
             sheetParam.setSheetNumber(sheetNumber);
             new ParamConvert(sheetParam);
